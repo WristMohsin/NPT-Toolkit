@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-ink-950 text-ink-100 font-display antialiased;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2A3448; border-radius: 6px; }
+
+.card {
+  @apply bg-ink-850 border border-ink-700 rounded-md;
+}
+.data-table th {
+  @apply text-left text-[11px] tracking-wide text-ink-300 font-medium py-2 px-3 border-b border-ink-700;
+}
+.data-table td {
+  @apply text-sm py-2 px-3 border-b border-ink-800 text-ink-100;
+}
+.data-table tbody tr:hover { background: #121722; }
+
+@media print {
+  body { background: white; color: black; }
+  .no-print { display: none !important; }
+}
