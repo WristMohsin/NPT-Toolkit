@@ -35,10 +35,9 @@ jobs:
             exit 1
           }
           Write-Host "dist OK"
-          Get-ChildItem dist | Select-Object Name, Length
 
-      - name: Build Electron (portable + nsis)
-        run: npx electron-builder --win --x64 --publish never
+      - name: Build Electron 32-bit (ia32)
+        run: npx electron-builder --win --ia32 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -50,7 +49,7 @@ jobs:
       - name: Upload Electron artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ANPT-Toolkit-Electron-Windows7
+          name: ANPT-Toolkit-Electron-Win32
           path: release-electron/**/*.exe
           if-no-files-found: error
           retention-days: 14

@@ -17,8 +17,8 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:1420 && electron .\"",
-    "electron:build": "vite build && electron-builder --win --x64",
-    "electron:build:dir": "vite build && electron-builder --win --dir"
+    "electron:build": "vite build && electron-builder --win --ia32",
+    "electron:build:dir": "vite build && electron-builder --win --ia32 --dir"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
@@ -71,14 +71,14 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": ["ia32"]
         },
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": ["ia32"]
         }
       ],
-      "artifactName": "ANPT-Toolkit-${version}-win-${arch}.${ext}"
+      "artifactName": "ANPT-Toolkit-${version}-win-ia32.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -87,7 +87,7 @@
       "shortcutName": "ANPT Toolkit"
     },
     "portable": {
-      "artifactName": "ANPT-Toolkit-${version}-portable.exe"
+      "artifactName": "ANPT-Toolkit-${version}-portable-ia32.exe"
     }
   }
 }
