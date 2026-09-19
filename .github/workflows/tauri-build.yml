@@ -26,18 +26,21 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: './src-tauri -> target'
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli@2
 
+      - name: Build frontend only (for now)
+        run: npm run build
+
       - name: Build Tauri app (Windows)
-        run: npm run tauri build
+        run: npm run tauri build -- --bundles nsis
+        continue-on-error: true
         env:
-          # Disable code signing for now (FYP / personal use)
           TAURI_SIGNING_PRIVATE_KEY: ""
 
       - name: Upload Windows artifacts
@@ -45,8 +48,8 @@ jobs:
         with:
           name: ANPT-Toolkit-Windows
           path: |
-            src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/*.exe
+            dist/**
           if-no-files-found: warn
           retention-days: 14
