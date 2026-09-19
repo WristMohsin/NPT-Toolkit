@@ -1,7 +1,10 @@
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { StoreProvider } from './services/store';
+import { AuthProvider } from './services/auth';
+import ProtectedRoute from './components/ProtectedRoute';
 import AppShell from './layouts/AppShell';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Assessments from './pages/Assessments';
 import Targets from './pages/Targets';
@@ -25,33 +28,45 @@ import NotFound from './pages/NotFound';
 
 export default function App() {
   return (
-    <StoreProvider>
-      <HashRouter>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/assessments" element={<Assessments />} />
-            <Route path="/targets" element={<Targets />} />
-            <Route path="/automation" element={<Automation />} />
-            <Route path="/logs" element={<Logs />} />
-            <Route path="/hosts" element={<Hosts />} />
-            <Route path="/hosts/:id" element={<HostDetail />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/network-map" element={<NetworkMap />} />
-            <Route path="/vulnerabilities" element={<Vulnerabilities />} />
-            <Route path="/findings" element={<Findings />} />
-            <Route path="/findings/:id" element={<FindingDetail />} />
-            <Route path="/evidence" element={<Evidence />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/templates" element={<Templates />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/import" element={<ImportCenter />} />
-            <Route path="/export" element={<ExportCenter />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </HashRouter>
-    </StoreProvider>
+    <AuthProvider>
+      <StoreProvider>
+        <HashRouter>
+          <Routes>
+            {/* Public route */}
+            <Route path="/login" element={<Login />} />
+
+            {/* All other routes require authentication */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppShell />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/assessments" element={<Assessments />} />
+              <Route path="/targets" element={<Targets />} />
+              <Route path="/automation" element={<Automation />} />
+              <Route path="/logs" element={<Logs />} />
+              <Route path="/hosts" element={<Hosts />} />
+              <Route path="/hosts/:id" element={<HostDetail />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/network-map" element={<NetworkMap />} />
+              <Route path="/vulnerabilities" element={<Vulnerabilities />} />
+              <Route path="/findings" element={<Findings />} />
+              <Route path="/findings/:id" element={<FindingDetail />} />
+              <Route path="/evidence" element={<Evidence />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/templates" element={<Templates />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/import" element={<ImportCenter />} />
+              <Route path="/export" element={<ExportCenter />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </HashRouter>
+      </StoreProvider>
+    </AuthProvider>
   );
 }
