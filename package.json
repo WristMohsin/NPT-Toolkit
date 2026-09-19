@@ -62,7 +62,8 @@
     },
     "files": [
       "dist/**/*",
-      "electron/main.cjs"
+      "electron/main.cjs",
+      "electron/preload.cjs"
     ],
     "extraMetadata": {
       "main": "electron/main.cjs"
