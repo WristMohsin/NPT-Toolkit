@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../services/store';
-import { EmptyState, SectionHeading, StatusPill } from '../components/ui';
+import { Button, EmptyState, SectionHeading, StatusPill } from '../components/ui';
 import { ShieldCheck, AlertTriangle } from 'lucide-react';
 
 export default function Targets() {
-  const { activeAssessment, targets } = useStore();
+  const { activeAssessment, targets, confirmAuthorization } = useStore();
+  const [confirming, setConfirming] = useState(false);
 
   if (!activeAssessment) {
     return <EmptyState title="No assessment loaded" body="Select or create an assessment to manage its targets." />;
@@ -13,6 +14,12 @@ export default function Targets() {
   const aTargets = targets.filter((t) => t.assessmentId === activeAssessment.id);
   const included = aTargets.filter((t) => t.scopeStatus === 'Included');
   const excluded = aTargets.filter((t) => t.scopeStatus === 'Excluded');
+  const isConfirmed = activeAssessment.authorizationStatus === 'Confirmed';
+
+  const handleConfirm = () => {
+    confirmAuthorization(activeAssessment.id);
+    setConfirming(false);
+  };
 
   return (
     <div>
@@ -36,7 +43,7 @@ export default function Targets() {
             <div className="text-xs text-ink-400 mb-1">Authorization</div>
             <StatusPill
               label={activeAssessment.authorizationStatus}
-              tone={activeAssessment.authorizationStatus === 'Confirmed' ? 'ok' : 'warn'}
+              tone={isConfirmed ? 'ok' : 'warn'}
             />
           </div>
           <div>
@@ -44,16 +51,48 @@ export default function Targets() {
             <div className="text-ink-100">{activeAssessment.profile}</div>
           </div>
         </div>
-        {activeAssessment.authorizationStatus !== 'Confirmed' && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-signal-med bg-signal-med/10 border border-signal-med/30 rounded px-3 py-2">
-            <AlertTriangle size={14} />
-            Authorization has not been confirmed for this assessment. Confirm authorization before starting scanning or importing results.
+
+        {!isConfirmed && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2">
+              <AlertTriangle size={14} />
+              Authorization has not been confirmed. Confirm only if you own this scope or have written permission to assess it.
+            </div>
+
+            {!confirming ? (
+              <Button onClick={() => setConfirming(true)}>
+                <ShieldCheck size={14} /> Confirm Authorization
+              </Button>
+            ) : (
+              <div className="border border-signal-accent/40 bg-signal-accent/10 rounded p-3">
+                <p className="text-sm text-ink-100 mb-2">
+                  I confirm that I am authorized to assess the scope listed above (systems I own or have written permission for).
+                </p>
+                <div className="flex gap-2">
+                  <Button onClick={handleConfirm}>Yes, Confirm Authorization</Button>
+                  <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isConfirmed && (
+          <div className="mt-3 text-xs text-signal-ok border border-signal-ok/30 bg-signal-ok/10 rounded px-3 py-2">
+            Authorization confirmed. Targets are ready for authorized scanning on the Automation page.
           </div>
         )}
       </div>
 
       {aTargets.length === 0 ? (
-        <EmptyState title="No targets recorded" body="Targets are populated automatically from demo data or scope entries. Add targets via the Assessments form or import scan results." />
+        <EmptyState
+          title="No targets recorded"
+          body={
+            isConfirmed
+              ? 'No target rows yet. Re-confirm authorization if scope was updated, or add targets when creating the assessment.'
+              : 'Click "Confirm Authorization" above to register scope entries as targets and unlock scanning.'
+          }
+        />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full data-table">
