@@ -5,47 +5,47 @@
 
 ---
 
-## Current Branches
+## Two Desktop Versions
 
-| Branch | Description |
-|--------|-------------|
-| `main` | Web version (GitHub Pages) |
-| `feature/tauri-desktop` | **Desktop version (Tauri)** – Work in progress |
-
----
-
-## Desktop Version (Tauri) – Status
-
-We are converting the React web app into a **native desktop application** using **Tauri** so that:
-
-- Real authorized Nmap scanning becomes possible (local agent)
-- Login / authentication can be enforced
-- The app can be distributed as a Windows installer / portable exe
-
-### Progress
-
-- [x] Tauri foundation + project structure
-- [x] Windows build workflow (`tauri-build.yml`)
-- [ ] Login / Authentication system
-- [ ] Local Assessment Agent (real Nmap)
-- [ ] Authorization checks on targets
-- [ ] Final polish + FYP documentation
-
-### How to get the desktop build
-
-1. Go to **Actions** tab → **Tauri Build (Windows)**
-2. Download the artifact named `ANPT-Toolkit-Windows`
-3. Extract and run the `.exe` or install the `.msi`
-
-> **Note:** First successful build may take a few minutes. Icons are currently placeholders.
+| Version | Target OS | Use Case | Artifact Name |
+|---------|-----------|----------|---------------|
+| **Electron** | Windows 7 / 8 / 10 / 11 | Testing & development on older PCs | `ANPT-Toolkit-Electron-Windows7` |
+| **Tauri** | Windows 10 / 11 | Final FYP demo (smaller & faster) | `ANPT-Toolkit-Windows` |
 
 ---
 
-## Web Version (main branch)
+## How to get the builds
 
-Still available at: https://wristmohsin.github.io/NPT-Toolkit/
+1. Go to **Actions** tab
+2. Choose the workflow:
+   - **Electron Build (Windows 7 Compatible)** → for Windows 7 testing
+   - **Tauri Build (Windows)** → for Windows 10/11 final demo
+3. Download the artifact from a **green (successful)** run
+4. Extract and run the `.exe`
 
-This version is **static only** (no real scanning).
+### Login (both versions)
+
+```
+Username : admin
+Password : Admin@ChangeMe1
+```
+
+---
+
+## Development
+
+```bash
+npm install
+
+# Web only
+npm run dev
+
+# Electron (Windows 7 compatible)
+npm run electron:dev
+
+# Tauri (Windows 10+)
+npm run tauri:dev
+```
 
 ---
 
@@ -55,21 +55,11 @@ This toolkit is intended **only** for systems you own or have explicit written a
 
 ---
 
-## Development (Desktop)
+## Current Progress
 
-```bash
-# Install dependencies
-npm install
-
-# Run in development mode (requires Rust + Tauri CLI)
-npm run tauri:dev
-
-# Build for production
-npm run tauri:build
-```
-
-Requirements:
-- Node.js 20+
-- Rust (stable)
-- Windows 10/11 (for Windows builds)
-- Nmap installed on the system (for real assessment – coming soon)
+- [x] React frontend (Dashboard, Findings, Reports, etc.)
+- [x] Login / Authentication
+- [x] Tauri desktop (Windows 10+)
+- [x] Electron desktop (Windows 7 compatible)
+- [ ] Real Nmap Assessment Agent
+- [ ] Authorization checks on targets
