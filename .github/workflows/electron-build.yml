@@ -18,13 +18,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: npm
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build frontend with Vite only
+      - name: Build frontend with Vite
         run: npx vite build
 
       - name: Verify dist
@@ -32,7 +32,6 @@ jobs:
         run: |
           if (-not (Test-Path "dist/index.html")) {
             Write-Error "dist/index.html missing"
-            Get-ChildItem -Recurse | Select-Object FullName
             exit 1
           }
           Write-Host "dist OK"
