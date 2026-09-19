@@ -22,23 +22,40 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
-      - name: Build frontend
+      - name: Build frontend (Vite)
         run: npm run build
 
-      - name: Build Electron (NSIS + Portable)
-        run: npx electron-builder --win --x64
+      - name: Verify dist exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/index.html")) {
+            Write-Error "dist/index.html not found after build"
+            exit 1
+          }
+          Get-ChildItem dist -Recurse | Select-Object FullName
+
+      - name: Build Electron app
+        run: npx electron-builder --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List release files
+        shell: pwsh
+        run: |
+          if (Test-Path "release-electron") {
+            Get-ChildItem release-electron -Recurse | Select-Object FullName, Length
+          } else {
+            Write-Host "release-electron folder not found"
+            Get-ChildItem -Recurse -Filter "*.exe" | Select-Object FullName
+          }
 
       - name: Upload Electron artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ANPT-Toolkit-Electron-Windows7
           path: |
-            release-electron/*.exe
-            release-electron/*Setup*.exe
-            release-electron/*portable*.exe
+            release-electron/**/*.exe
           if-no-files-found: error
           retention-days: 14

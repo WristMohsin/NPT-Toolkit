@@ -1,7 +1,6 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
-// Windows 7 compatible Electron (v22)
 let mainWindow = null;
 
 function createWindow() {
@@ -12,6 +11,7 @@ function createWindow() {
     minHeight: 700,
     title: 'ANPT Toolkit - Authorized Network Security Assessment',
     backgroundColor: '#0a0e17',
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -20,23 +20,18 @@ function createWindow() {
     show: false,
   });
 
-  // Load the built React app
   const isDev = !app.isPackaged;
 
   if (isDev) {
-    // Development: load Vite dev server
     mainWindow.loadURL('http://localhost:1420');
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    // Production: load from dist
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
-  // Open external links in default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };

@@ -5,7 +5,6 @@
   "description": "ANPT Toolkit - Authorized Network Penetration Testing Toolkit",
   "author": "WristMohsin",
   "main": "electron/main.cjs",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -16,7 +15,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:1420 && electron .\"",
-    "electron:build": "npm run build && electron-builder --win",
+    "electron:build": "npm run build && electron-builder --win --x64",
     "electron:build:dir": "npm run build && electron-builder --win --dir"
   },
   "dependencies": {
@@ -45,38 +44,47 @@
     "oxlint": "^1.81.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19",
-    "typescript": "~6.0.2",
-    "vite": "^8.3.0",
-    "vitest": "^5.0.1",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8",
     "wait-on": "^8.0.0"
   },
   "build": {
     "appId": "com.wristmohsin.anpt-toolkit",
     "productName": "ANPT Toolkit",
+    "copyright": "Copyright © 2026 WristMohsin",
     "directories": {
-      "output": "release-electron"
+      "output": "release-electron",
+      "buildResources": "electron"
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/main.cjs"
     ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": ["x64"]
         },
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": ["x64"]
         }
       ],
-      "artifactName": "ANPT-Toolkit-${version}-${os}-${arch}.${ext}"
+      "artifactName": "ANPT-Toolkit-${version}-win-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "shortcutName": "ANPT Toolkit"
+    },
+    "portable": {
+      "artifactName": "ANPT-Toolkit-${version}-portable.exe"
     }
   }
 }
