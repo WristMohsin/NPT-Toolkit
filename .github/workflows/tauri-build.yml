@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: npm
 
       - name: Install Rust stable
@@ -29,36 +29,32 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: npm install
 
-      - name: Install Tauri CLI
-        run: npm install -g @tauri-apps/cli@2
-
-      - name: Create default icons (if missing)
+      - name: Create default icons
         shell: pwsh
         run: |
-          if (-not (Test-Path "src-tauri/icons/icon.ico")) {
-            New-Item -ItemType Directory -Force -Path "src-tauri/icons" | Out-Null
-            # Create a minimal valid 1x1 PNG and let tauri icon generate the rest
-            # Using a tiny base64 PNG
-            $pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-            $bytes = [Convert]::FromBase64String($pngBase64)
-            [IO.File]::WriteAllBytes("$pwd/src-tauri/icons/icon.png", $bytes)
-            npx tauri icon src-tauri/icons/icon.png
-          }
+          New-Item -ItemType Directory -Force -Path "src-tauri/icons" | Out-Null
+          $pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+          $bytes = [Convert]::FromBase64String($pngBase64)
+          [IO.File]::WriteAllBytes("$pwd/src-tauri/icons/icon.png", $bytes)
+          npx --yes @tauri-apps/cli@2 icon src-tauri/icons/icon.png
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Tauri (NSIS installer)
+        run: npx tauri build --bundles nsis
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: .
-          tauriScript: npm run tauri
-          args: -- --bundles nsis
-          includeDebug: false
-          includeRelease: true
-          uploadRelease: false
+          # Avoid signing requirements for FYP builds
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: List output files
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse src-tauri/target/release/bundle -ErrorAction SilentlyContinue | Select-Object FullName, Length
+          Get-ChildItem src-tauri/target/release/*.exe -ErrorAction SilentlyContinue | Select-Object FullName, Length
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
