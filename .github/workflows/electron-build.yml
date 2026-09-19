@@ -24,38 +24,34 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build frontend (Vite)
-        run: npm run build
+      - name: Build frontend with Vite only
+        run: npx vite build
 
-      - name: Verify dist exists
+      - name: Verify dist
         shell: pwsh
         run: |
           if (-not (Test-Path "dist/index.html")) {
-            Write-Error "dist/index.html not found after build"
+            Write-Error "dist/index.html missing"
+            Get-ChildItem -Recurse | Select-Object FullName
             exit 1
           }
-          Get-ChildItem dist -Recurse | Select-Object FullName
+          Write-Host "dist OK"
+          Get-ChildItem dist | Select-Object Name, Length
 
-      - name: Build Electron app
+      - name: Build Electron (portable + nsis)
         run: npx electron-builder --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: List release files
+      - name: List artifacts
         shell: pwsh
         run: |
-          if (Test-Path "release-electron") {
-            Get-ChildItem release-electron -Recurse | Select-Object FullName, Length
-          } else {
-            Write-Host "release-electron folder not found"
-            Get-ChildItem -Recurse -Filter "*.exe" | Select-Object FullName
-          }
+          Get-ChildItem -Path release-electron -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
 
       - name: Upload Electron artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ANPT-Toolkit-Electron-Windows7
-          path: |
-            release-electron/**/*.exe
+          path: release-electron/**/*.exe
           if-no-files-found: error
           retention-days: 14
