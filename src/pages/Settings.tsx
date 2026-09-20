@@ -1,47 +1,98 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../services/store';
+import { useAuth } from '../services/auth';
 import { Button, SectionHeading, StatusPill } from '../components/ui';
+import { checkNmap, isElectronAgent, NmapCheckResult } from '../services/nmapAgent';
 
 export default function Settings() {
   const { resetAll, clearDemoData, exportAll } = useStore();
-  const [agentEndpoint, setAgentEndpoint] = useState('');
+  const { user, changePassword, logout } = useAuth();
   const [confirmReset, setConfirmReset] = useState(false);
+  const [nmap, setNmap] = useState<NmapCheckResult | null>(null);
+  const [curPass, setCurPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [passMsg, setPassMsg] = useState('');
+
+  useEffect(() => {
+    checkNmap().then(setNmap);
+  }, []);
 
   const download = () => {
     const blob = new Blob([exportAll()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'anpt-export.json';
+    a.download = `anpt-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const onChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await changePassword(curPass, newPass);
+    if (res.ok) {
+      setPassMsg('Password updated successfully.');
+      setCurPass('');
+      setNewPass('');
+    } else {
+      setPassMsg(res.error || 'Failed to change password');
+    }
+  };
+
   return (
     <div className="max-w-2xl">
-      <SectionHeading title="Settings" />
+      <SectionHeading title="Settings" subtitle="Agent, security, and data controls." />
 
       <div className="card p-4 mb-4">
-        <div className="text-sm font-medium text-ink-100 mb-3">Agent</div>
+        <div className="text-sm font-medium text-ink-100 mb-3">Session</div>
         <div className="flex items-center justify-between text-sm mb-2">
-          <span className="text-ink-300">Agent Mode</span>
-          <span className="text-ink-100">Demo / Import</span>
+          <span className="text-ink-300">Signed in as</span>
+          <span className="font-mono text-ink-100">{user?.username || '—'}</span>
         </div>
-        <div className="mb-2">
-          <div className="text-xs text-ink-400 mb-1">Agent Endpoint</div>
+        <Button variant="secondary" onClick={logout}>Sign out</Button>
+      </div>
+
+      <div className="card p-4 mb-4">
+        <div className="text-sm font-medium text-ink-100 mb-3">Change Password</div>
+        <form onSubmit={onChangePassword} className="space-y-2">
           <input
-            value={agentEndpoint}
-            onChange={(e) => setAgentEndpoint(e.target.value)}
-            placeholder="https://agent.internal.lab:8443"
-            className="w-full bg-ink-800 border border-ink-700 rounded px-2.5 py-1.5 text-sm text-ink-100 placeholder:text-ink-500"
+            type="password"
+            placeholder="Current password"
+            value={curPass}
+            onChange={(e) => setCurPass(e.target.value)}
+            className="w-full bg-ink-800 border border-ink-700 rounded px-2.5 py-1.5 text-sm text-ink-100"
+            required
+          />
+          <input
+            type="password"
+            placeholder="New password (min 8 chars)"
+            value={newPass}
+            onChange={(e) => setNewPass(e.target.value)}
+            className="w-full bg-ink-800 border border-ink-700 rounded px-2.5 py-1.5 text-sm text-ink-100"
+            required
+            minLength={8}
+          />
+          <Button type="submit">Update Password</Button>
+        </form>
+        {passMsg && <p className="text-xs text-ink-300 mt-2">{passMsg}</p>}
+      </div>
+
+      <div className="card p-4 mb-4">
+        <div className="text-sm font-medium text-ink-100 mb-3">Local Assessment Agent</div>
+        <div className="flex items-center justify-between text-sm mb-2">
+          <span className="text-ink-300">Runtime</span>
+          <StatusPill label={isElectronAgent() ? 'Electron Desktop' : 'Browser / Web'} tone={isElectronAgent() ? 'ok' : 'neutral'} />
+        </div>
+        <div className="flex items-center justify-between text-sm mb-2">
+          <span className="text-ink-300">Nmap</span>
+          <StatusPill
+            label={nmap?.installed ? `v${nmap.version}` : 'Not detected'}
+            tone={nmap?.installed ? 'ok' : 'warn'}
           />
         </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-ink-300">Connection</span>
-          <StatusPill label="Disconnected" tone="neutral" />
-        </div>
-        <p className="text-xs text-ink-500 mt-2">
-          The application never connects to an agent endpoint automatically. A future local agent must be explicitly configured and connected.
+        <p className="text-xs text-ink-500 mt-2">{nmap?.message}</p>
+        <p className="text-xs text-ink-500 mt-1">
+          Real scanning requires the desktop app, Nmap on PATH, and Confirmed authorization on targets.
         </p>
       </div>
 
@@ -53,7 +104,7 @@ export default function Settings() {
           <Button variant="danger" onClick={() => setConfirmReset(true)}>Reset Application</Button>
         </div>
         {confirmReset && (
-          <div className="mt-3 border border-signal-crit/40 bg-signal-crit/10 rounded p-3">
+          <div className="mt-3 border border-red-500/40 bg-red-500/10 rounded p-3">
             <div className="text-sm text-ink-100 mb-2">This will permanently delete all local assessment data. Continue?</div>
             <div className="flex gap-2">
               <Button variant="danger" onClick={() => { resetAll(); setConfirmReset(false); }}>Yes, Reset Everything</Button>
@@ -65,7 +116,13 @@ export default function Settings() {
 
       <div className="card p-4">
         <div className="text-sm font-medium text-ink-100 mb-1">About</div>
-        <p className="text-sm text-ink-300">ANPT Toolkit — Automated Network Penetration Testing Toolkit. Frontend hosted on GitHub Pages; scanning requires an authorized local agent, self-hosted backend, or imported scan results.</p>
+        <p className="text-sm text-ink-300">
+          ANPT Toolkit v0.1.0 — Automated Network Penetration Testing Toolkit for authorized security assessments.
+          Workflow: authorize scope → discover hosts → enumerate services → correlate findings → report.
+        </p>
+        <p className="text-xs text-ink-500 mt-2">
+          Use only on systems you own or have explicit written authorization to test.
+        </p>
       </div>
     </div>
   );

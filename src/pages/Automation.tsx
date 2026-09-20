@@ -4,11 +4,29 @@ import { Button, EmptyState, SectionHeading } from '../components/ui';
 import { Play, Square, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { checkNmap, runAuthorizedScan, onScanProgress, isElectronAgent, NmapCheckResult } from '../services/nmapAgent';
 import { parseNmapXml } from '../services/importParsers';
+import { correlateFindings } from '../services/findingsEngine';
 
-const PHASES = ['Scope Validation', 'Discovery', 'Service Enumeration', 'Vulnerability Assessment', 'Correlation', 'Findings', 'Report'];
+const PHASES = [
+  'Scope Validation',
+  'Discovery',
+  'Service Enumeration',
+  'Vulnerability Correlation',
+  'Finding Generation',
+  'Report Ready',
+];
 
 export default function Automation() {
-  const { activeAssessment, targets, importDataset } = useStore();
+  const {
+    activeAssessment,
+    targets,
+    importDataset,
+    updateAssessment,
+    appendLog,
+  } = useStore() as ReturnType<typeof useStore> & {
+    appendLog?: (message: string) => void;
+    updateAssessment?: (id: string, patch: Record<string, unknown>) => void;
+  };
+
   const [running, setRunning] = useState(false);
   const [phaseIdx, setPhaseIdx] = useState(-1);
   const [nmap, setNmap] = useState<NmapCheckResult | null>(null);
@@ -21,11 +39,13 @@ export default function Automation() {
     (t) => activeAssessment && t.assessmentId === activeAssessment.id && t.scopeStatus === 'Included'
   );
 
+  const log = (msg: string) => {
+    if (typeof appendLog === 'function') appendLog(msg);
+  };
+
   useEffect(() => {
     checkNmap().then(setNmap);
-    const off = onScanProgress((data) => {
-      setStatusMsg(data.message);
-    });
+    const off = onScanProgress((data) => setStatusMsg(data.message));
     return off;
   }, []);
 
@@ -39,12 +59,14 @@ export default function Automation() {
     !!nmap?.installed &&
     !!selectedTarget &&
     selectedTarget.authorization === 'Confirmed' &&
+    activeAssessment.authorizationStatus === 'Confirmed' &&
     !running;
 
   const startDemo = () => {
     setRunning(true);
     setPhaseIdx(0);
     setError('');
+    log('Demo workflow started');
     let i = 0;
     const t = setInterval(() => {
       i += 1;
@@ -52,6 +74,7 @@ export default function Automation() {
       if (i >= PHASES.length - 1) {
         clearInterval(t);
         setRunning(false);
+        log('Demo workflow completed');
       }
     }, 700);
   };
@@ -61,14 +84,27 @@ export default function Automation() {
     setError('');
     setStatusMsg('Starting authorized scan...');
     setRunning(true);
-    setPhaseIdx(1);
+    setPhaseIdx(0);
+    log(`Authorized scan requested for ${selectedTarget.value} (profile=${profileId})`);
 
+    if (updateAssessment) {
+      updateAssessment(activeAssessment.id, {
+        status: 'Running',
+        executionMode: 'Agent',
+        phase: 'Discovery',
+        progress: 15,
+      });
+    }
+
+    setPhaseIdx(1);
     const id = `scan-${Date.now()}`;
 
     const result = await runAuthorizedScan({
       target: selectedTarget.value,
       profileId,
-      authorizationConfirmed: selectedTarget.authorization === 'Confirmed',
+      authorizationConfirmed:
+        selectedTarget.authorization === 'Confirmed' &&
+        activeAssessment.authorizationStatus === 'Confirmed',
       scanId: id,
     });
 
@@ -76,27 +112,48 @@ export default function Automation() {
       setError(result.error || 'Scan failed');
       setRunning(false);
       setPhaseIdx(-1);
+      log(`Scan failed: ${result.error || 'unknown error'}`);
+      if (updateAssessment) {
+        updateAssessment(activeAssessment.id, { status: 'Ready', progress: 0 });
+      }
       return;
     }
 
     try {
       setPhaseIdx(2);
       setStatusMsg('Parsing Nmap XML...');
+      log('Parsing Nmap XML output');
       const parsed = parseNmapXml(result.xml, activeAssessment.id);
+
+      setPhaseIdx(3);
+      setStatusMsg('Correlating findings...');
+      log('Running findings correlation engine');
+      const correlated = correlateFindings(activeAssessment.id, parsed.hosts, parsed.services);
+
+      setPhaseIdx(4);
       importDataset({
         hosts: parsed.hosts,
         services: parsed.services,
-        findings: parsed.findings,
+        findings: [...parsed.findings, ...correlated],
       });
-      setPhaseIdx(PHASES.length - 1);
-      setStatusMsg(
-        `Scan complete: ${parsed.hosts.length} host(s), ${parsed.services.length} service(s). Open Hosts / Services pages.`
-      );
-      if (parsed.warnings.length) {
-        setStatusMsg((m) => m + ` Warnings: ${parsed.warnings.join('; ')}`);
+
+      setPhaseIdx(5);
+      const msg = `Scan complete: ${parsed.hosts.length} host(s), ${parsed.services.length} service(s), ${correlated.length} finding(s).`;
+      setStatusMsg(msg);
+      log(msg);
+
+      if (updateAssessment) {
+        updateAssessment(activeAssessment.id, {
+          status: 'Completed',
+          phase: 'Report Generation',
+          progress: 100,
+          executionMode: 'Agent',
+        });
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to parse Nmap output');
+      const m = e instanceof Error ? e.message : 'Failed to process scan output';
+      setError(m);
+      log(`Post-scan processing error: ${m}`);
     }
 
     setRunning(false);
@@ -106,7 +163,7 @@ export default function Automation() {
     <div>
       <SectionHeading
         title="Automation"
-        subtitle="Assessment workflow orchestration + authorized local Nmap agent."
+        subtitle="Authorized assessment workflow and local Nmap agent."
       />
 
       <div className="card p-4 mb-4">
@@ -116,10 +173,10 @@ export default function Automation() {
         </div>
         {!isElectronAgent() ? (
           <p className="text-sm text-ink-400">
-            Open the <strong>Electron desktop app</strong> to enable real Nmap scanning. Browser mode supports Demo + Import only.
+            Open the <strong>Electron desktop app</strong> for real Nmap scanning. Browser mode supports Demo + Import only.
           </p>
         ) : nmap?.installed ? (
-          <p className="text-sm text-signal-ok">Nmap {nmap.version} detected — real authorized scans available.</p>
+          <p className="text-sm text-signal-ok">Nmap {nmap.version} detected — authorized scans available.</p>
         ) : (
           <p className="text-sm text-amber-400 flex items-center gap-2">
             <AlertTriangle size={14} />
@@ -130,10 +187,10 @@ export default function Automation() {
 
       {isElectronAgent() && (
         <div className="card p-4 mb-4 space-y-3">
-          <div className="text-sm font-medium text-ink-100">Authorized Scan</div>
+          <div className="text-sm font-medium text-ink-100">Authorized Scan Pipeline</div>
 
           <div>
-            <label className="text-xs text-ink-400 block mb-1">Target (must be Authorization = Confirmed)</label>
+            <label className="text-xs text-ink-400 block mb-1">Target (Authorization = Confirmed)</label>
             <select
               value={selectedTargetId}
               onChange={(e) => setSelectedTargetId(e.target.value)}
@@ -149,21 +206,22 @@ export default function Automation() {
           </div>
 
           <div>
-            <label className="text-xs text-ink-400 block mb-1">Scan Profile (safe allow-list only)</label>
+            <label className="text-xs text-ink-400 block mb-1">Scan Profile (safe allow-list)</label>
             <select
               value={profileId}
               onChange={(e) => setProfileId(e.target.value)}
               className="w-full bg-ink-800 border border-ink-700 rounded px-2.5 py-1.5 text-sm text-ink-100"
             >
-              <option value="quick">Quick Scan</option>
+              <option value="quick">Quick Discovery</option>
               <option value="standard">Standard Service Scan</option>
               <option value="top100">Top 100 Ports + Version</option>
             </select>
           </div>
 
-          {selectedTarget && selectedTarget.authorization !== 'Confirmed' && (
+          {(selectedTarget?.authorization !== 'Confirmed' ||
+            activeAssessment.authorizationStatus !== 'Confirmed') && (
             <div className="text-xs text-red-400 border border-red-500/40 bg-red-500/10 rounded px-3 py-2">
-              This target is not authorized. Set Authorization = Confirmed on the Targets page before scanning.
+              Confirm authorization on the Targets page before scanning.
             </div>
           )}
 
@@ -185,7 +243,7 @@ export default function Automation() {
 
       <div className="mb-4 text-xs px-3 py-2 rounded border border-signal-accent/30 bg-signal-accent/10 text-signal-accent inline-block">
         {isElectronAgent() && nmap?.installed
-          ? 'Execution Mode: AGENT — authorized local Nmap only'
+          ? 'Execution Mode: AGENT — authorized local Nmap + findings correlation'
           : 'Execution Mode: DEMO — no network traffic generated'}
       </div>
 
