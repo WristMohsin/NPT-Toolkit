@@ -19,7 +19,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -30,7 +29,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Create default icons
         shell: pwsh
@@ -42,12 +41,11 @@ jobs:
           npx --yes @tauri-apps/cli@2 icon src-tauri/icons/icon.png
 
       - name: Build frontend
-        run: npm run build
+        run: npx vite build
 
       - name: Build Tauri (NSIS installer)
         run: npx tauri build --bundles nsis
         env:
-          # Avoid signing requirements for FYP builds
           TAURI_SIGNING_PRIVATE_KEY: ""
 
       - name: List output files
