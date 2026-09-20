@@ -23,6 +23,7 @@ interface StoreApi extends StoreShape {
   addAssessment: (a: Assessment) => void;
   updateAssessment: (id: string, patch: Partial<Assessment>) => void;
   confirmAuthorization: (assessmentId: string) => void;
+  appendLog: (message: string) => void;
   importDataset: (payload: { hosts: Host[]; services: ServiceEntry[]; findings: Finding[]; assessment?: Assessment }) => void;
   exportAll: () => string;
 }
@@ -106,13 +107,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addAssessment = useCallback((a: Assessment) => {
     setAssessments((prev) => [a, ...prev]);
     setActiveAssessmentId(a.id);
+    setLogs((prev) => [{ time: new Date().toISOString(), message: `Assessment created: ${a.name} (${a.id})` }, ...prev]);
   }, []);
 
   const updateAssessment = useCallback((id: string, patch: Partial<Assessment>) => {
     setAssessments((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   }, []);
 
-  /** Confirm authorization + create Target rows from scope/excluded strings */
+  const appendLog = useCallback((message: string) => {
+    setLogs((prev) => [{ time: new Date().toISOString(), message }, ...prev].slice(0, 500));
+  }, []);
+
   const confirmAuthorization = useCallback((assessmentId: string) => {
     const assessment = assessments.find((a) => a.id === assessmentId);
     if (!assessment) return;
@@ -159,6 +164,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const others = prev.filter((t) => t.assessmentId !== assessmentId);
       return [...newTargets, ...others];
     });
+
+    setLogs((prev) => [
+      {
+        time: new Date().toISOString(),
+        message: `Authorization confirmed for ${assessmentId}; ${newTargets.length} target(s) registered`,
+      },
+      ...prev,
+    ]);
   }, [assessments]);
 
   const importDataset = useCallback(
@@ -167,6 +180,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setHosts((prev) => [...payload.hosts, ...prev]);
       setServices((prev) => [...payload.services, ...prev]);
       setFindings((prev) => [...payload.findings, ...prev]);
+      setLogs((prev) => [
+        {
+          time: new Date().toISOString(),
+          message: `Imported ${payload.hosts.length} host(s), ${payload.services.length} service(s), ${payload.findings.length} finding(s)`,
+        },
+        ...prev,
+      ]);
     },
     []
   );
@@ -197,6 +217,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     addAssessment,
     updateAssessment,
     confirmAuthorization,
+    appendLog,
     importDataset,
     exportAll,
   };
