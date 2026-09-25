@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ClipboardList, Crosshair, PlayCircle, ScrollText,
   Server, Network, Map, ShieldAlert, FileWarning, FolderOpen,
   FileText, LayoutTemplate, Import, FileOutput, Settings, ChevronLeft, ChevronRight, Search, BarChart3,
+  LogOut, User,
 } from 'lucide-react';
 import { useStore } from '../services/store';
+import { useAuth } from '../services/auth';
 import { StatusPill } from '../components/ui';
 
 const navGroups: Array<{ label: string; items: Array<{ to: string; label: string; icon: React.ElementType }> }> = [
@@ -62,6 +64,13 @@ const navGroups: Array<{ label: string; items: Array<{ to: string; label: string
 export default function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
   const { activeAssessment } = useStore();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <div className="min-h-screen flex bg-ink-950">
@@ -105,6 +114,24 @@ export default function AppShell() {
             </div>
           ))}
         </nav>
+
+        {/* User + Logout */}
+        <div className="border-t border-ink-800 p-2">
+          {!collapsed && user && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 mb-1 text-xs text-ink-300">
+              <User size={13} className="text-ink-400" />
+              <span className="truncate font-mono">{user.username}</span>
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-sm text-ink-300 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            title="Logout"
+          >
+            <LogOut size={15} className="shrink-0" />
+            {!collapsed && <span>Logout</span>}
+          </button>
+        </div>
 
         <button
           onClick={() => setCollapsed((c) => !c)}

@@ -1,0 +1,55 @@
+name: Electron Build (Windows 7 Compatible)
+
+on:
+  push:
+    branches: [ feature/tauri-desktop, main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-electron-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build frontend with Vite
+        run: npx vite build
+
+      - name: Verify dist
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/index.html")) {
+            Write-Error "dist/index.html missing"
+            exit 1
+          }
+          Write-Host "dist OK"
+
+      - name: Build Electron 32-bit (ia32)
+        run: npx electron-builder --win --ia32 --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path release-electron -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length
+
+      - name: Upload Electron artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ANPT-Toolkit-Electron-Win32
+          path: release-electron/**/*.exe
+          if-no-files-found: error
+          retention-days: 14

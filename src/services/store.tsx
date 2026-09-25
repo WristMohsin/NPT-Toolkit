@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { Assessment, Host, ServiceEntry, Finding, Target, LogEntry } from '../types';
-import { StorageProvider } from './storage';
+import { StorageProvider, uid } from './storage';
 import { buildDemoDataset } from '../data/demoData';
 
 interface StoreShape {
@@ -21,6 +21,9 @@ interface StoreApi extends StoreShape {
   resetAll: () => void;
   updateFindingStatus: (id: string, status: Finding['status']) => void;
   addAssessment: (a: Assessment) => void;
+  updateAssessment: (id: string, patch: Partial<Assessment>) => void;
+  confirmAuthorization: (assessmentId: string) => void;
+  appendLog: (message: string) => void;
   importDataset: (payload: { hosts: Host[]; services: ServiceEntry[]; findings: Finding[]; assessment?: Assessment }) => void;
   exportAll: () => string;
 }
@@ -35,6 +38,13 @@ const COLLECTIONS = {
   findings: 'findings',
   logs: 'logs',
 };
+
+function detectTargetType(value: string): Target['type'] {
+  if (/^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(value)) return 'CIDR';
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(value)) return 'IPv4';
+  if (value.includes(':')) return 'IPv6';
+  return 'Hostname';
+}
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [assessments, setAssessments] = useState<Assessment[]>(() => StorageProvider.getAll(COLLECTIONS.assessments));
@@ -70,8 +80,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const clearDemoData = useCallback(() => {
     setAssessments((prev) => prev.filter((a) => a.executionMode !== 'Demo'));
-    setTargets((prev) => prev.filter((t) => !t.id.startsWith('TGT') || false));
     const demoIds = new Set(assessments.filter((a) => a.executionMode === 'Demo').map((a) => a.id));
+    setTargets((prev) => prev.filter((t) => !demoIds.has(t.assessmentId)));
     setHosts((prev) => prev.filter((h) => !demoIds.has(h.assessmentId)));
     setServices((prev) => prev.filter((s) => !demoIds.has(s.assessmentId)));
     setFindings((prev) => prev.filter((f) => !demoIds.has(f.assessmentId)));
@@ -97,7 +107,72 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addAssessment = useCallback((a: Assessment) => {
     setAssessments((prev) => [a, ...prev]);
     setActiveAssessmentId(a.id);
+    setLogs((prev) => [{ time: new Date().toISOString(), message: `Assessment created: ${a.name} (${a.id})` }, ...prev]);
   }, []);
+
+  const updateAssessment = useCallback((id: string, patch: Partial<Assessment>) => {
+    setAssessments((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  }, []);
+
+  const appendLog = useCallback((message: string) => {
+    setLogs((prev) => [{ time: new Date().toISOString(), message }, ...prev].slice(0, 500));
+  }, []);
+
+  const confirmAuthorization = useCallback((assessmentId: string) => {
+    const assessment = assessments.find((a) => a.id === assessmentId);
+    if (!assessment) return;
+
+    setAssessments((prev) =>
+      prev.map((a) =>
+        a.id === assessmentId
+          ? { ...a, authorizationStatus: 'Confirmed', status: a.status === 'Draft' ? 'Ready' : a.status }
+          : a
+      )
+    );
+
+    const included = assessment.scope
+      .split(/[,\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const excluded = assessment.excluded
+      .split(/[,\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const newTargets: Target[] = [
+      ...included.map((value) => ({
+        id: uid('TGT'),
+        assessmentId,
+        value,
+        type: detectTargetType(value),
+        scopeStatus: 'Included' as const,
+        authorization: 'Confirmed' as const,
+        lastAssessment: new Date().toISOString().slice(0, 10),
+      })),
+      ...excluded.map((value) => ({
+        id: uid('TGT'),
+        assessmentId,
+        value,
+        type: detectTargetType(value),
+        scopeStatus: 'Excluded' as const,
+        authorization: 'Confirmed' as const,
+        lastAssessment: new Date().toISOString().slice(0, 10),
+      })),
+    ];
+
+    setTargets((prev) => {
+      const others = prev.filter((t) => t.assessmentId !== assessmentId);
+      return [...newTargets, ...others];
+    });
+
+    setLogs((prev) => [
+      {
+        time: new Date().toISOString(),
+        message: `Authorization confirmed for ${assessmentId}; ${newTargets.length} target(s) registered`,
+      },
+      ...prev,
+    ]);
+  }, [assessments]);
 
   const importDataset = useCallback(
     (payload: { hosts: Host[]; services: ServiceEntry[]; findings: Finding[]; assessment?: Assessment }) => {
@@ -105,6 +180,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setHosts((prev) => [...payload.hosts, ...prev]);
       setServices((prev) => [...payload.services, ...prev]);
       setFindings((prev) => [...payload.findings, ...prev]);
+      setLogs((prev) => [
+        {
+          time: new Date().toISOString(),
+          message: `Imported ${payload.hosts.length} host(s), ${payload.services.length} service(s), ${payload.findings.length} finding(s)`,
+        },
+        ...prev,
+      ]);
     },
     []
   );
@@ -133,6 +215,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     resetAll,
     updateFindingStatus,
     addAssessment,
+    updateAssessment,
+    confirmAuthorization,
+    appendLog,
     importDataset,
     exportAll,
   };

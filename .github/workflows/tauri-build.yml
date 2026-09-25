@@ -1,0 +1,68 @@
+name: Tauri Build (Windows)
+
+on:
+  push:
+    branches: [ feature/tauri-desktop, main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Create release icons
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "src-tauri/icons" | Out-Null
+          # Minimal valid PNG seed; tauri icon expands to all required sizes
+          $pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+          $bytes = [Convert]::FromBase64String($pngBase64)
+          [IO.File]::WriteAllBytes("$pwd/src-tauri/icons/icon.png", $bytes)
+          npx --yes @tauri-apps/cli@2 icon src-tauri/icons/icon.png
+
+      - name: Build frontend
+        run: npx vite build
+
+      - name: Build Tauri NSIS installer (v1.0.0)
+        run: npx tauri build --bundles nsis
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+      - name: List release outputs
+        shell: pwsh
+        run: |
+          Write-Host "=== Bundle contents ==="
+          Get-ChildItem -Recurse src-tauri/target/release/bundle -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length | Format-Table -AutoSize
+
+      - name: Upload final Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ANPT-Toolkit-v1.0.0-Windows-x64
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/anpt-toolkit.exe
+            src-tauri/target/release/ANPT Toolkit.exe
+          if-no-files-found: error
+          retention-days: 30
