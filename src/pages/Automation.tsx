@@ -2,7 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useStore } from '../services/store';
 import { Button, EmptyState, SectionHeading } from '../components/ui';
 import { Play, Square, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { checkNmap, runAuthorizedScan, onScanProgress, isElectronAgent, NmapCheckResult } from '../services/nmapAgent';
+import {
+  checkNmap,
+  runAuthorizedScan,
+  onScanProgress,
+  isDesktopAgent,
+  NmapCheckResult,
+} from '../services/nmapAgent';
 import { parseNmapXml } from '../services/importParsers';
 import { correlateFindings } from '../services/findingsEngine';
 
@@ -16,16 +22,7 @@ const PHASES = [
 ];
 
 export default function Automation() {
-  const {
-    activeAssessment,
-    targets,
-    importDataset,
-    updateAssessment,
-    appendLog,
-  } = useStore() as ReturnType<typeof useStore> & {
-    appendLog?: (message: string) => void;
-    updateAssessment?: (id: string, patch: Record<string, unknown>) => void;
-  };
+  const { activeAssessment, targets, importDataset, updateAssessment, appendLog } = useStore();
 
   const [running, setRunning] = useState(false);
   const [phaseIdx, setPhaseIdx] = useState(-1);
@@ -39,10 +36,6 @@ export default function Automation() {
     (t) => activeAssessment && t.assessmentId === activeAssessment.id && t.scopeStatus === 'Included'
   );
 
-  const log = (msg: string) => {
-    if (typeof appendLog === 'function') appendLog(msg);
-  };
-
   useEffect(() => {
     checkNmap().then(setNmap);
     const off = onScanProgress((data) => setStatusMsg(data.message));
@@ -50,12 +43,17 @@ export default function Automation() {
   }, []);
 
   if (!activeAssessment) {
-    return <EmptyState title="No assessment loaded" body="Select or create an assessment to view the automation workflow." />;
+    return (
+      <EmptyState
+        title="No assessment loaded"
+        body="Select or create an assessment to view the automation workflow."
+      />
+    );
   }
 
   const selectedTarget = assessmentTargets.find((t) => t.id === selectedTargetId);
   const canScan =
-    isElectronAgent() &&
+    isDesktopAgent() &&
     !!nmap?.installed &&
     !!selectedTarget &&
     selectedTarget.authorization === 'Confirmed' &&
@@ -66,7 +64,7 @@ export default function Automation() {
     setRunning(true);
     setPhaseIdx(0);
     setError('');
-    log('Demo workflow started');
+    appendLog('Demo workflow started');
     let i = 0;
     const t = setInterval(() => {
       i += 1;
@@ -74,7 +72,7 @@ export default function Automation() {
       if (i >= PHASES.length - 1) {
         clearInterval(t);
         setRunning(false);
-        log('Demo workflow completed');
+        appendLog('Demo workflow completed');
       }
     }, 700);
   };
@@ -85,16 +83,14 @@ export default function Automation() {
     setStatusMsg('Starting authorized scan...');
     setRunning(true);
     setPhaseIdx(0);
-    log(`Authorized scan requested for ${selectedTarget.value} (profile=${profileId})`);
+    appendLog(`Authorized scan requested for ${selectedTarget.value} (profile=${profileId})`);
 
-    if (updateAssessment) {
-      updateAssessment(activeAssessment.id, {
-        status: 'Running',
-        executionMode: 'Agent',
-        phase: 'Discovery',
-        progress: 15,
-      });
-    }
+    updateAssessment(activeAssessment.id, {
+      status: 'Running',
+      executionMode: 'Agent',
+      phase: 'Discovery',
+      progress: 15,
+    });
 
     setPhaseIdx(1);
     const id = `scan-${Date.now()}`;
@@ -112,22 +108,20 @@ export default function Automation() {
       setError(result.error || 'Scan failed');
       setRunning(false);
       setPhaseIdx(-1);
-      log(`Scan failed: ${result.error || 'unknown error'}`);
-      if (updateAssessment) {
-        updateAssessment(activeAssessment.id, { status: 'Ready', progress: 0 });
-      }
+      appendLog(`Scan failed: ${result.error || 'unknown error'}`);
+      updateAssessment(activeAssessment.id, { status: 'Ready', progress: 0 });
       return;
     }
 
     try {
       setPhaseIdx(2);
       setStatusMsg('Parsing Nmap XML...');
-      log('Parsing Nmap XML output');
+      appendLog('Parsing Nmap XML output');
       const parsed = parseNmapXml(result.xml, activeAssessment.id);
 
       setPhaseIdx(3);
       setStatusMsg('Correlating findings...');
-      log('Running findings correlation engine');
+      appendLog('Running findings correlation engine');
       const correlated = correlateFindings(activeAssessment.id, parsed.hosts, parsed.services);
 
       setPhaseIdx(4);
@@ -140,20 +134,18 @@ export default function Automation() {
       setPhaseIdx(5);
       const msg = `Scan complete: ${parsed.hosts.length} host(s), ${parsed.services.length} service(s), ${correlated.length} finding(s).`;
       setStatusMsg(msg);
-      log(msg);
+      appendLog(msg);
 
-      if (updateAssessment) {
-        updateAssessment(activeAssessment.id, {
-          status: 'Completed',
-          phase: 'Report Generation',
-          progress: 100,
-          executionMode: 'Agent',
-        });
-      }
+      updateAssessment(activeAssessment.id, {
+        status: 'Completed',
+        phase: 'Report Generation',
+        progress: 100,
+        executionMode: 'Agent',
+      });
     } catch (e: unknown) {
       const m = e instanceof Error ? e.message : 'Failed to process scan output';
       setError(m);
-      log(`Post-scan processing error: ${m}`);
+      appendLog(`Post-scan processing error: ${m}`);
     }
 
     setRunning(false);
@@ -171,9 +163,10 @@ export default function Automation() {
           <ShieldCheck size={16} className="text-signal-accent" />
           Local Assessment Agent
         </div>
-        {!isElectronAgent() ? (
+        {!isDesktopAgent() ? (
           <p className="text-sm text-ink-400">
-            Open the <strong>Electron desktop app</strong> for real Nmap scanning. Browser mode supports Demo + Import only.
+            Open the <strong>Tauri</strong> or <strong>Electron</strong> desktop app for real Nmap scanning.
+            Browser mode supports Demo + Import only.
           </p>
         ) : nmap?.installed ? (
           <p className="text-sm text-signal-ok">Nmap {nmap.version} detected — authorized scans available.</p>
@@ -185,7 +178,7 @@ export default function Automation() {
         )}
       </div>
 
-      {isElectronAgent() && (
+      {isDesktopAgent() && (
         <div className="card p-4 mb-4 space-y-3">
           <div className="text-sm font-medium text-ink-100">Authorized Scan Pipeline</div>
 
@@ -242,7 +235,7 @@ export default function Automation() {
       )}
 
       <div className="mb-4 text-xs px-3 py-2 rounded border border-signal-accent/30 bg-signal-accent/10 text-signal-accent inline-block">
-        {isElectronAgent() && nmap?.installed
+        {isDesktopAgent() && nmap?.installed
           ? 'Execution Mode: AGENT — authorized local Nmap + findings correlation'
           : 'Execution Mode: DEMO — no network traffic generated'}
       </div>

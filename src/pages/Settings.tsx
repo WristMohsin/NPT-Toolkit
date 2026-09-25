@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useStore } from '../services/store';
 import { useAuth } from '../services/auth';
 import { Button, SectionHeading, StatusPill } from '../components/ui';
-import { checkNmap, isElectronAgent, NmapCheckResult } from '../services/nmapAgent';
+import { checkNmap, isDesktopAgent, isElectronAgent, NmapCheckResult } from '../services/nmapAgent';
 
 export default function Settings() {
   const { resetAll, clearDemoData, exportAll } = useStore();
@@ -16,6 +16,12 @@ export default function Settings() {
   useEffect(() => {
     checkNmap().then(setNmap);
   }, []);
+
+  const runtimeLabel = isElectronAgent()
+    ? 'Electron Desktop'
+    : isDesktopAgent()
+      ? 'Tauri Desktop'
+      : 'Browser / Web';
 
   const download = () => {
     const blob = new Blob([exportAll()], { type: 'application/json' });
@@ -81,7 +87,7 @@ export default function Settings() {
         <div className="text-sm font-medium text-ink-100 mb-3">Local Assessment Agent</div>
         <div className="flex items-center justify-between text-sm mb-2">
           <span className="text-ink-300">Runtime</span>
-          <StatusPill label={isElectronAgent() ? 'Electron Desktop' : 'Browser / Web'} tone={isElectronAgent() ? 'ok' : 'neutral'} />
+          <StatusPill label={runtimeLabel} tone={isDesktopAgent() ? 'ok' : 'neutral'} />
         </div>
         <div className="flex items-center justify-between text-sm mb-2">
           <span className="text-ink-300">Nmap</span>
@@ -92,7 +98,7 @@ export default function Settings() {
         </div>
         <p className="text-xs text-ink-500 mt-2">{nmap?.message}</p>
         <p className="text-xs text-ink-500 mt-1">
-          Real scanning requires the desktop app, Nmap on PATH, and Confirmed authorization on targets.
+          Real scanning requires the desktop app (Tauri v1.0 or Electron), Nmap on PATH, and Confirmed authorization.
         </p>
       </div>
 
@@ -117,7 +123,7 @@ export default function Settings() {
       <div className="card p-4">
         <div className="text-sm font-medium text-ink-100 mb-1">About</div>
         <p className="text-sm text-ink-300">
-          ANPT Toolkit v0.1.0 — Automated Network Penetration Testing Toolkit for authorized security assessments.
+          ANPT Toolkit <b>v1.0.0</b> — Automated Network Penetration Testing Toolkit for authorized security assessments.
           Workflow: authorize scope → discover hosts → enumerate services → correlate findings → report.
         </p>
         <p className="text-xs text-ink-500 mt-2">
