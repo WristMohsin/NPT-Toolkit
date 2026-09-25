@@ -1,6 +1,6 @@
 [package]
 name = "anpt-toolkit"
-version = "0.1.0"
+version = "1.0.0"
 description = "ANPT Toolkit - Authorized Network Penetration Testing Toolkit"
 authors = ["WristMohsin"]
 edition = "2021"

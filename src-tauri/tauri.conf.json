@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ANPT Toolkit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.wristmohsin.anpt-toolkit",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -12,14 +12,17 @@
   "app": {
     "windows": [
       {
-        "title": "ANPT Toolkit - Authorized Network Security Assessment",
+        "label": "main",
+        "title": "ANPT Toolkit — Authorized Network Security Assessment",
         "width": 1400,
         "height": 900,
         "minWidth": 1100,
         "minHeight": 700,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "decorations": true,
+        "focus": true
       }
     ],
     "security": {
@@ -29,6 +32,11 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "category": "Utility",
+    "shortDescription": "Authorized Network Penetration Testing Toolkit",
+    "longDescription": "ANPT Toolkit is a desktop application for authorized network security assessments. It orchestrates local Nmap scanning, service enumeration, findings correlation, and professional reporting — restricted to confirmed authorized targets only.",
+    "copyright": "Copyright © 2026 WristMohsin",
+    "publisher": "WristMohsin",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,7 +46,13 @@
     ],
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": null,
+        "sidebarImage": null,
+        "startMenuFolder": "ANPT Toolkit",
+        "installerHooks": null
       }
     }
   }
